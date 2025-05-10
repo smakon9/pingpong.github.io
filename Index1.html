@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отскок фотографии</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            cursor: none;
+        }
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        #platform {
+            position: absolute;
+            width: 150px;
+            height: 20px;
+            background-color: #333;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 10px;
+        }
+        #photo {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background-size: cover;
+            background-position: center;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        }
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 24px;
+            color: #333;
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            color: red;
+            display: none;
+        }
+        #restart {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            font-size: 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+        }
+        #uploadContainer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+        #startGame {
+            margin-top: 15px;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div id="score">Счет: 0</div>
+        <div id="photo"></div>
+        <div id="platform"></div>
+        <div id="gameOver">Игра окончена!</div>
+        <button id="restart">Играть снова</button>
+    </div>
+
+    <div id="uploadContainer">
+        <h2>Загрузите свою фотографию</h2>
+        <input type="file" id="photoUpload" accept="image/*">
+        <button id="startGame">Начать игру</button>
+    </div>
+
+    <script>
+        // Игровые элементы
+        const photo = document.getElementById('photo');
+        const platform = document.getElementById('platform');
+        const gameContainer = document.getElementById('gameContainer');
+        const scoreElement = document.getElementById('score');
+        const gameOverElement = document.getElementById('gameOver');
+        const restartButton = document.getElementById('restart');
+        const uploadContainer = document.getElementById('uploadContainer');
+        const photoUpload = document.getElementById('photoUpload');
+        const startGameButton = document.getElementById('startGame');
+
+        // Параметры игры
+        let photoX = 100;
+        let photoY = 100;
+        let photoSpeedX = 3;
+        let photoSpeedY = 3;
+        let platformX = gameContainer.offsetWidth / 2 - 75;
+        let score = 0;
+        let gameOver = false;
+        let gameStarted = false;
+
+        // Размеры элементов
+        const photoWidth = 80;
+        const photoHeight = 80;
+        const platformWidth = 150;
+        const platformHeight = 20;
+
+        // Установка начальной позиции фотографии
+        function initPhoto() {
+            photoX = Math.random() * (gameContainer.offsetWidth - photoWidth);
+            photoY = 100;
+            photoSpeedX = 3 + Math.random() * 2;
+            photoSpeedY = 3 + Math.random() * 2;
+        }
+
+        // Обновление позиций элементов
+        function update() {
+            if (gameOver || !gameStarted) return;
+
+            // Движение фотографии
+            photoX += photoSpeedX;
+            photoY += photoSpeedY;
+
+            // Проверка столкновения с границами
+            if (photoX <= 0 || photoX >= gameContainer.offsetWidth - photoWidth) {
+                photoSpeedX = -photoSpeedX;
+            }
+            if (photoY <= 0) {
+                photoSpeedY = -photoSpeedY;
+            }
+
+            // Проверка столкновения с платформой
+            if (
+                photoY + photoHeight >= platform.offsetTop &&
+                photoY <= platform.offsetTop + platformHeight &&
+                photoX + photoWidth >= platformX &&
+                photoX <= platformX + platformWidth
+            ) {
+                // Угол отскока зависит от того, в какую часть платформы попали
+                const hitPosition = (photoX + photoWidth/2) - (platformX + platformWidth/2);
+                photoSpeedX = hitPosition * 0.1;
+                
+                photoSpeedY = -Math.abs(photoSpeedY); // Гарантируем, что фото отскочит вверх
+                score++;
+                scoreElement.textContent = `Счет: ${score}`;
+                
+                // Увеличиваем скорость для усложнения игры
+                photoSpeedX *= 1.02;
+                photoSpeedY *= 1.02;
+            }
+
+            // Проверка проигрыша (фото упала вниз)
+            if (photoY > gameContainer.offsetHeight) {
+                endGame();
+            }
+
+            // Обновление позиции фотографии
+            photo.style.left = `${photoX}px`;
+            photo.style.top = `${photoY}px`;
+
+            // Продолжаем анимацию
+            requestAnimationFrame(update);
+        }
+
+        // Обработка движения мыши
+        gameContainer.addEventListener('mousemove', (e) => {
+            if (gameOver || !gameStarted) return;
+            
+            platformX = e.clientX - platformWidth / 2;
+            
+            // Ограничение, чтобы платформа не выходила за границы
+            if (platformX < 0) platformX = 0;
+            if (platformX > gameContainer.offsetWidth - platformWidth) {
+                platformX = gameContainer.offsetWidth - platformWidth;
+            }
+            
+            platform.style.left = `${platformX}px`;
+        });
+
+        function endGame() {
+            gameOver = true;
+            gameOverElement.style.display = 'block';
+            restartButton.style.display = 'block';
+        }
+
+        function startGame() {
+            // Скрываем меню загрузки
+            uploadContainer.style.display = 'none';
+            
+            // Инициализируем игру
+            gameStarted = true;
+            gameOver = false;
+            score = 0;
+            scoreElement.textContent = `Счет: ${score}`;
+            gameOverElement.style.display = 'none';
+            restartButton.style.display = 'none';
+            
+            initPhoto();
+            update();
+        }
+
+        // Перезапуск игры
+        restartButton.addEventListener('click', () => {
+            gameOver = false;
+            gameOverElement.style.display = 'none';
+            restartButton.style.display = 'none';
+            score = 0;
+            scoreElement.textContent = `Счет: ${score}`;
+            initPhoto();
+            update();
+        });
+
+        // Загрузка фотографии
+        photoUpload.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    photo.style.backgroundImage = `url(${event.target.result})`;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Начало игры
+        startGameButton.addEventListener('click', startGame);
+
+        // Инициализация платформы
+        platform.style.left = `${platformX}px`;
+    </script>
+</body>
+</html>
